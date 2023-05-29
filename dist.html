@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Bar Charts with D3.js</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="d3.min.js"></script>
+    <script src="https://d3js.org/d3-scale.v3.min.js" ></script>
+    <link rel="stylesheet" href="layout.css" />
+    <style>
+    </style>
+  </head>
+  <body>
+    <header class=titre>Data science Job Salaries  </header>
+	
+	
+    <div class=menu>
+    <ul>
+     <li><a href="accueil.html">our projet</a></li>
+      <li><a href="yearr.html">salaries per year </a></li>
+      <li><a href="r.html">Number of employees per job title </a></li>
+      <li><a href="dist.html"> Distribution of average salary </a></li>
+      
+    </ul>
+</div>
+
+    <h1> Distribution of average salary based on</h1>
+    <input type="range" min="2020" max="2022" step="1" id="year" value="2020" oninput="selectedYear.value = year.value">
+    <output name="selected_year" id="selectedYear">2020</output>
+    <select id="filter-select">
+        <option value="remote_ratio">Remote Ratio</option>
+        <option value="employment_type">Employment Type</option>
+        <option value="experience_level">Experience Level</option>
+      </select>
+    <div id="chart1"></div>
+    <script src="d3.min.js"></script>
+    <script>
+    // Set the dimensions and margins of the graph
+    var margin = {top: 60, right: 60, bottom: 60, left: 60},
+      width = 960 - margin.left - margin.right,
+      height = 500 - margin.top - margin.bottom;
+      
+    // Select the year input element
+    const yearInput = document.getElementById("year");
+    //const filterDropdown = d3.select("#filter-select");
+    // Add an event listener to the year input element
+    yearInput.addEventListener("change", updateChart);
+    const filterSelect = document.getElementById('filter-select');
+filterSelect.addEventListener('change', updateChart)
+    const x = d3.scaleLinear()
+        .range([0, width]);
+
+        // Set the y-axis scale
+        const y = d3.scaleBand()
+        .range([height, 0])
+        .padding(0.1);
+    // Append the svg object to the body of the page
+    const svg1 = d3.select("#chart1")
+      .append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform",
+            "translate(" + margin.left + "," + margin.top + ")");
+  
+        // Add the x-axis to the chart
+        svg1.append("g")
+        .attr("class", "x-axis")
+        .attr("transform", `translate(0, ${height})`);
+
+        // Add the y-axis to the chart
+        svg1.append("g")
+        .attr("class", "y-axis");
+        
+  function updateChart() {
+        // Get the selected year from the year input element
+        const selectedYear = yearInput.value;
+        const filterSelected=filterSelect.value;
+        // Parse the Data
+        d3.csv("ds_salaries.csv").then(data => {
+            // Filter the data for the selected year and job title Data Scientist
+            const dataFiltered = data.filter(d => d.work_year === selectedYear );
+            //const filterSelected = filterDropdown.property("value");
+            // Group the data by salary and count the number of data scientists for each salary
+            const dataGrouped = d3.rollup(dataFiltered, v => d3.mean(v, d => +d.salary_in_usd), 
+            d => d[filterSelected]);
+    
+            // Create a scale for the x-axis (salaries)
+            // Set the x-axis domain based on the data range
+        x.domain([0, d3.max(dataGrouped.values())]);
+
+        // Set the y-axis domain based on the employment types
+        y.domain(dataGrouped.keys());
+            
+            // Create the x-axis and add it to the SVG
+            const xAxis = d3.axisBottom(x);
+            svg1.select(".x.axis").remove(); // Remove the previous x-axis
+            svg1.append("g")
+            .attr("class", "x axis")
+            .attr("transform", "translate(0," + height + ")")
+            .transition()
+            .duration(1000)
+            .call(xAxis)
+            .selectAll("text")
+            .attr("transform", "translate(-10,5)rotate(-45)")
+            .style("text-anchor", "end")
+            
+            // Create the y-axis and add it to the SVG
+            const yAxis = d3.axisLeft(y);
+            svg1.select(".y.axis").remove(); // Remove the previous y-axis
+            svg1.append("g")
+            .attr("class", "y axis")
+            .transition()
+            .duration(1000)
+            .call(yAxis);
+    // Define the color scale
+        const color = d3.scaleOrdinal()
+        .domain([0, d3.max(dataGrouped.keys())])
+        .range([ "#ffcc00","#190694","#3399FF","red"]);
+            // Create the bars
+               // Create the bars
+    const bars = svg1.selectAll(".bar")
+      .data(dataGrouped, d => d[0]);
+    
+    // Update existing bars
+    bars.transition()
+      .duration(1000)
+      .attr("y", d => y(d[1]))
+      .attr("height",y.bandwidth());
+    // Add new bars
+    bars.enter()
+            .append("rect")
+            .attr("class", "bar")
+            .attr("x", 0) // set the starting position of the bars to the left edge of the chart
+            .attr("y", d => y(d[0])) // use y scale for the horizontal position of the bars
+            .attr("height", y.bandwidth()) // set the height of the bars to the bandwidth of the y scale
+            .attr("width", 0) // set the initial width of the bars to 0
+            .merge(bars)
+            .transition()
+            .duration(1000)
+            .attr("x", d => 0) // set the x position to 0 (starting from the left edge)
+            .attr("y", d => y(d[0])) // use y scale for the horizontal position of the bars
+            .attr("width", d => x(d[1])) // use x scale for the width of the bars
+            .attr("height", y.bandwidth()) // set the height of the bars to the bandwidth of the y scale
+      .attr("fill",  d => color(d[0]))
+      
+        // Remove the bars that are no longer needed    // Remove old bars
+    bars.exit()
+      .transition()
+      .duration(1000)
+      .attr("y", height)
+      .attr("height", 0)
+      .remove();
+     
+        // Add x-label to SVG container
+svg1.append("text")
+  .attr("class", "x-label")
+  .attr("text-anchor", "middle")
+  .attr("x", width/2)
+  .attr("y", height+40)
+  .text("Average Salary in USD");
+
+// Add y-label to SVG container
+svg1.append("text")
+  .attr("class", "y-label")
+  .attr("text-anchor", "middle")
+  .attr("transform", "rotate(-90)")
+  .attr("x", -height/2)
+  .attr("y", -margin.left+20)
+
+     // Add legend to SVG container
+const legend = svg1.append("g")
+  .attr("class", "legend")
+  .attr("transform", "translate(" + (width) + "," + (height-200) + ")");
+
+// Add legend title
+legend.append("text")
+  .attr("class", "legend-title")
+  .attr("x", 0)
+  .attr("y", -10)
+
+// Add legend items
+legend.selectAll(".legend-item").remove()
+  .data(dataGrouped.keys())
+  .enter()
+  .append("text")
+  .attr("class", "legend-item")
+  .attr("x", 0)
+  .attr("y", (d, i) => i * 25)
+  .text(d => d)
+  .style("fill", d => color(d))
+        });
+  }   
+  // Set the default year to display
+const defaultYear = "2020";
+const defaultFilter="experience_level"
+updateChart(defaultYear,defaultFilter)
+</script>
+</body>
+</html>
